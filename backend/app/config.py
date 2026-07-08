@@ -55,7 +55,10 @@ class Settings(BaseSettings):
     )
 
     frontend_url: str | None = None
-    cors_origin_regex: str | None = None
+    # Matches Vercel previews, localhost, and custom HTTPS frontends
+    cors_origin_regex: str | None = (
+        r"https?://(.*\.)?vercel\.app|http://localhost(:\d+)?|http://127\.0\.0\.1(:\d+)?"
+    )
 
     default_market: str = "KOSPI"
     universe_limit: int = 50

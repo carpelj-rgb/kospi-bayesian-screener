@@ -4,7 +4,7 @@ import { getBackendUrl, proxyToBackend } from "@/lib/backend-proxy";
 export const maxDuration = 60;
 
 export async function GET(request: NextRequest) {
-  const path = `/api/v1/screener${request.nextUrl.search}`;
+  const path = `/api/v1/health${request.nextUrl.search}`;
   try {
     const res = await proxyToBackend(path);
     const body = await res.text();
@@ -14,9 +14,7 @@ export async function GET(request: NextRequest) {
     });
   } catch {
     return NextResponse.json(
-      {
-        detail: `백엔드(${getBackendUrl()})에 연결하지 못했습니다. Render 서비스가 실행 중인지 확인하세요.`,
-      },
+      { detail: `백엔드(${getBackendUrl()})에 연결하지 못했습니다.` },
       { status: 502 }
     );
   }
