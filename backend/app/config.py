@@ -1,34 +1,45 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Annotated, Any
 
-from pydantic import field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
-
-
-def _parse_origin_list(value: Any) -> list[str]:
-    if value is None:
-        return []
-    if isinstance(value, list):
-        return [str(item).strip().rstrip("/") for item in value if str(item).strip()]
-    if isinstance(value, str):
-        raw = value.strip()
-        if not raw:
-            return []
-        if raw.startswith("["):
-            parsed = json.loads(raw)
-            if not isinstance(parsed, list):
-                raise ValueError("CORS_ORIGINS JSON must be a list")
-            return [str(item).strip().rstrip("/") for item in parsed if str(item).strip()]
-        return [part.strip().rstrip("/") for part in raw.split(",") if part.strip()]
-    raise ValueError("CORS_ORIGINS must be a comma-separated string or JSON list")
-
+from pydantic import Field, field_validator, model_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 _DEFAULT_LOCAL_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
 ]
+
+
+def _parse_origin_list(value: Any) -> list[str]:
+    """Parse CORS origins from env string, JSON list, or Python list."""
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(item).strip().rstrip("/") for item in value if str(item).strip()]
+    if not isinstance(value, str):
+        return []
+
+    raw = value.strip()
+    if not raw:
+        return []
+
+    if raw.startswith("["):
+        try:
+            parsed = json.loads(raw)
+            if isinstance(parsed, list):
+                return [
+                    str(item).strip().rstrip("/")
+                    for item in parsed
+                    if str(item).strip()
+                ]
+        except (json.JSONDecodeError, TypeError, ValueError):
+            pass
+        # Malformed JSON — fall through to comma split (strip brackets)
+        raw = raw.strip("[]")
+
+    return [part.strip().rstrip("/") for part in raw.split(",") if part.strip()]
 
 
 class Settings(BaseSettings):
@@ -37,14 +48,13 @@ class Settings(BaseSettings):
     app_name: str = "KOSPI Bayesian Factor Screener"
     debug: bool = True
 
-    # Comma-separated or JSON list. Example (Render/Vercel):
-    # CORS_ORIGINS=https://my-app.vercel.app,https://my-app-git-main.vercel.app
-    cors_origins: list[str] = _DEFAULT_LOCAL_ORIGINS.copy()
+    # NoDecode: pass raw env string to validator (avoid JSON decode errors on Render)
+    # CORS_ORIGINS=https://a.vercel.app,https://b.vercel.app
+    cors_origins: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: _DEFAULT_LOCAL_ORIGINS.copy()
+    )
 
-    # Optional single frontend URL (also added to CORS allowlist)
     frontend_url: str | None = None
-
-    # Optional regex for preview deployments, e.g. https://.*\.vercel\.app
     cors_origin_regex: str | None = None
 
     default_market: str = "KOSPI"
