@@ -29,16 +29,23 @@ export function ScreenerDashboard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [dataSourceNote, setDataSourceNote] = useState<string | null>(null);
   const [hasScreened, setHasScreened] = useState(false);
 
   const runScreening = useCallback(async () => {
     setLoading(true);
     setError(null);
     setWarnings([]);
+    setDataSourceNote(null);
     try {
       const data = await getScreener({ market, limit });
       setRows(sortByPosterior(data.rows));
       setMeta({ market: data.market, as_of: data.as_of, count: data.count });
+      setDataSourceNote(
+        data.data_source === "limited"
+          ? data.data_source_note ?? "제한 모드로 계산된 결과입니다."
+          : null
+      );
       setWarnings(data.warnings ?? []);
       setHasScreened(true);
     } catch (e) {
@@ -83,6 +90,11 @@ export function ScreenerDashboard() {
         const data = await getScreener({ market, limit });
         setRows(sortByPosterior(data.rows));
         setMeta({ market: data.market, as_of: data.as_of, count: data.count });
+        setDataSourceNote(
+          data.data_source === "limited"
+            ? data.data_source_note ?? "제한 모드로 계산된 결과입니다."
+            : null
+        );
         setWarnings(data.warnings ?? []);
         setHasScreened(true);
       }
@@ -193,6 +205,13 @@ export function ScreenerDashboard() {
           </p>
         )}
       </section>
+
+      {dataSourceNote && (
+        <div className="rounded-lg border border-amber-800/80 bg-amber-950/20 px-5 py-4">
+          <p className="font-medium text-amber-300">제한 모드</p>
+          <p className="mt-1 text-sm text-[var(--muted)]">{dataSourceNote}</p>
+        </div>
+      )}
 
       {warnings.length > 0 && (
         <div className="rounded-lg border border-amber-800/80 bg-amber-950/20 px-5 py-4">

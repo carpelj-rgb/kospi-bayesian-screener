@@ -1,6 +1,4 @@
-from pykrx import stock
-
-from app.data.providers.krx_config import should_use_pykrx
+from app.data.providers.krx_config import get_stock_module, should_use_pykrx
 
 # KRX API 장애 시 사용하는 KOSPI 대표 종목 (시가총액 상위)
 FALLBACK_KOSPI_TICKERS = [
@@ -50,27 +48,35 @@ FALLBACK_NAMES = {
 }
 
 
-def get_tickers(market: str = "KOSPI") -> list[str]:
+def get_tickers(market: str = "KOSPI") -> tuple[list[str], bool]:
+    """
+    Return tickers and whether fallback universe was used.
+    pykrx failures are handled silently; no credentials required.
+    """
     if not should_use_pykrx():
-        return FALLBACK_KOSPI_TICKERS.copy()
+        return FALLBACK_KOSPI_TICKERS.copy(), True
+
     try:
+        stock = get_stock_module()
         tickers = stock.get_market_ticker_list(market=market)
         if tickers:
-            return tickers
+            return tickers, False
     except Exception:
         pass
-    if market.upper() == "KOSPI":
-        return FALLBACK_KOSPI_TICKERS.copy()
-    return FALLBACK_KOSPI_TICKERS.copy()
+
+    return FALLBACK_KOSPI_TICKERS.copy(), True
 
 
 def get_ticker_name(ticker: str) -> str:
     if not should_use_pykrx():
         return FALLBACK_NAMES.get(ticker, ticker)
+
     try:
+        stock = get_stock_module()
         name = stock.get_market_ticker_name(ticker)
         if name:
             return name
     except Exception:
         pass
+
     return FALLBACK_NAMES.get(ticker, ticker)

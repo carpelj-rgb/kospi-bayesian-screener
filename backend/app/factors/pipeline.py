@@ -99,7 +99,7 @@ class FactorPipeline:
         try:
             return fetcher()
         except Exception:
-            logger.exception("%s fetch failed", label)
+            logger.debug("%s fetch failed; using fallback", label, exc_info=True)
             return default
 
     def run(self, tickers: list[str], market: str = "KOSPI") -> FactorFrame:
@@ -109,7 +109,7 @@ class FactorPipeline:
         try:
             as_of = self.pykrx.latest_business_day()
         except Exception:
-            logger.exception("latest_business_day failed")
+            logger.debug("latest_business_day failed; using today", exc_info=True)
             as_of = date.today()
 
         prices = self._safe_fetch("prices", lambda: self.pykrx.get_prices(tickers, as_of, market), pd.Series(dtype="float64"))

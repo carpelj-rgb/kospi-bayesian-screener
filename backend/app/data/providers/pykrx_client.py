@@ -4,12 +4,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, timedelta
 
 import pandas as pd
-from pykrx import stock
 
-from app.data.providers.krx_config import configure_pykrx_logging, should_use_pykrx
+from app.data.providers.krx_config import get_stock_module, should_use_pykrx
 from app.data.universe import get_ticker_name
-
-configure_pykrx_logging()
 
 
 def _to_yyyymmdd(d: date) -> str:
@@ -20,6 +17,7 @@ def _latest_business_day(reference: date | None = None) -> date:
     ref = reference or date.today()
     if not should_use_pykrx():
         return ref
+    stock = get_stock_module()
     for offset in range(0, 14):
         candidate = ref - timedelta(days=offset)
         ymd = _to_yyyymmdd(candidate)
@@ -35,12 +33,6 @@ def _latest_business_day(reference: date | None = None) -> date:
 class PykrxClient:
     def __init__(self) -> None:
         self._enabled = should_use_pykrx()
-        if not self._enabled:
-            import logging
-
-            logging.getLogger(__name__).info(
-                "pykrx skipped (KRX_ID/KRX_PW unset). Using fallback universe + yfinance."
-            )
 
     @property
     def enabled(self) -> bool:
@@ -52,6 +44,7 @@ class PykrxClient:
     def get_prices(self, tickers: list[str], as_of: date, market: str = "KOSPI") -> pd.Series:
         if not self._enabled:
             return pd.Series(dtype="float64")
+        stock = get_stock_module()
         ymd = _to_yyyymmdd(as_of)
         try:
             df = stock.get_market_ohlcv_by_ticker(ymd, market=market)
@@ -75,6 +68,7 @@ class PykrxClient:
     def get_pbr(self, tickers: list[str], as_of: date, market: str = "KOSPI") -> pd.Series:
         if not self._enabled:
             return pd.Series(dtype="float64")
+        stock = get_stock_module()
         ymd = _to_yyyymmdd(as_of)
         try:
             df = stock.get_market_fundamental_by_ticker(ymd, market=market)
@@ -100,6 +94,7 @@ class PykrxClient:
     def _net_flow_for_ticker(
         self, ticker: str, ymd_start: str, ymd_end: str, window: int
     ) -> dict[str, float | str] | None:
+        stock = get_stock_module()
         try:
             foreign = stock.get_market_net_purchases_of_equities(
                 ymd_start, ymd_end, ticker, "외국인"
@@ -126,6 +121,7 @@ class PykrxClient:
     ) -> dict[str, list[float]]:
         if not self._enabled:
             return {ticker: [] for ticker in tickers}
+        stock = get_stock_module()
         start = as_of - timedelta(days=days * 3)
         ymd_start = _to_yyyymmdd(start)
         ymd_end = _to_yyyymmdd(as_of)
@@ -156,6 +152,7 @@ class PykrxClient:
     ) -> dict[str, list[float]]:
         if not self._enabled:
             return {ticker: [] for ticker in tickers}
+        stock = get_stock_module()
         start = as_of - timedelta(days=days * 3)
         ymd_start = _to_yyyymmdd(start)
         ymd_end = _to_yyyymmdd(as_of)
@@ -193,6 +190,7 @@ class PykrxClient:
     ) -> dict[str, pd.DataFrame]:
         if not self._enabled:
             return {ticker: pd.DataFrame() for ticker in tickers}
+        stock = get_stock_module()
         start = as_of - timedelta(days=int(days * 1.6))
         ymd_start = _to_yyyymmdd(start)
         ymd_end = _to_yyyymmdd(as_of)
@@ -220,6 +218,7 @@ class PykrxClient:
     ) -> dict[str, tuple[float | None, float | None]]:
         if not self._enabled:
             return {ticker: (None, None) for ticker in tickers}
+        stock = get_stock_module()
         start = as_of - timedelta(days=periods * 120)
         ymd_start = _to_yyyymmdd(start)
         ymd_end = _to_yyyymmdd(as_of)
@@ -262,6 +261,7 @@ class PykrxClient:
     ) -> dict[str, list[float]]:
         if not self._enabled:
             return {ticker: [] for ticker in tickers}
+        stock = get_stock_module()
         start = as_of - timedelta(days=days * 3)
         ymd_start = _to_yyyymmdd(start)
         ymd_end = _to_yyyymmdd(as_of)

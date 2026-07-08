@@ -52,7 +52,7 @@ docker compose up --build
 
 - `render.yaml` — Docker, 서비스명 `kospi-bayesian-screener`
 - URL: `https://kospi-bayesian-screener.onrender.com`
-- 선택 env: `KRX_ID`, `KRX_PW`, `CORS_ORIGINS`, `FRONTEND_URL`
+- 선택 env: `CORS_ORIGINS`, `FRONTEND_URL` (`PYKRX_ENABLED=false` 로 pykrx 비활성화 가능)
 
 ### Vercel (프론트엔드)
 
@@ -125,6 +125,6 @@ log(Odds_post) = log(Odds_prior) + Σ wᵢ·log(LRᵢ) + Σ bonus·log(LR_aux)
 ## 주의
 
 - pykrx/yfinance는 **장 마감 후** 데이터 반영이 지연될 수 있습니다.
-- KRX API가 차단되거나 로그인이 필요한 환경에서는 `.env`에 `KRX_ID`, `KRX_PW`를 설정하세요. API 실패 시에도 **폴백 유니버스**로 스크리너는 동작하지만 PBR·수급 데이터는 중립값(0.5)으로 처리될 수 있습니다.
+- pykrx는 **별도 KRX 회원 로그인 없이** 공개 API로 시도하며, 실패 시 fallback 유니버스 + yfinance로 자동 전환됩니다. API 응답의 `data_source: "limited"` 로 제한 모드를 확인할 수 있습니다.
 - EPS 데이터는 yfinance 커버리지에 따라 일부 종목에서 누락될 수 있습니다.
 - 본 프로젝트는 **투자 참고용**이며 투자 손실에 대한 책임을 지지 않습니다.

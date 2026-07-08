@@ -18,7 +18,3 @@ services:
         sync: false
       - key: CORS_ORIGIN_REGEX
         value: "https://.*\\.vercel\\.app"
-      - key: KRX_ID
-        sync: false
-      - key: KRX_PW
-        sync: false

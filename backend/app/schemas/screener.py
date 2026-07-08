@@ -28,6 +28,8 @@ class ScreenerResponse(BaseModel):
     as_of: date
     count: int
     rows: list[ScreenerRow]
+    data_source: str = "full"
+    data_source_note: str | None = None
     warnings: list[str] = Field(default_factory=list)
 
 

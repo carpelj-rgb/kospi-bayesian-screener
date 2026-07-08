@@ -1,3 +1,7 @@
+from app.data.providers.krx_config import configure_pykrx
+
+configure_pykrx()
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse

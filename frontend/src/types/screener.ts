@@ -23,6 +23,8 @@ export interface ScreenerResponse {
   as_of: string;
   count: number;
   rows: ScreenerRow[];
+  data_source?: "full" | "limited";
+  data_source_note?: string | null;
   warnings?: string[];
 }
 

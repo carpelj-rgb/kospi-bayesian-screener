@@ -11,7 +11,7 @@ from app.bayesian.screener import (
     set_prior_odds,
 )
 from app.config import settings
-from app.data.providers.krx_config import should_use_pykrx
+from app.data.providers.krx_config import LIMITED_DATA_NOTE, should_use_pykrx
 from app.data.providers.pykrx_client import PykrxClient
 from app.data.universe import get_tickers
 from app.factors.models import TickerFactorInputs
@@ -62,10 +62,40 @@ class ScreenerService:
         self.pykrx = pykrx or PykrxClient()
         self._prior_odds = set_prior_odds(settings.prior_up_prob)
 
-    def _resolve_tickers(self, market: str, limit: int | None) -> list[str]:
-        tickers = get_tickers(market)
+    def _resolve_tickers(self, market: str, limit: int | None) -> tuple[list[str], bool]:
+        tickers, used_fallback = get_tickers(market)
         cap = limit or settings.universe_limit
-        return tickers[:cap]
+        return tickers[:cap], used_fallback
+
+    def _limited_response_fields(
+        self, used_fallback: bool, pykrx_enabled: bool
+    ) -> tuple[str, str | None]:
+        if not pykrx_enabled or used_fallback:
+            return "limited", LIMITED_DATA_NOTE
+        return "full", None
+
+    def _response(
+        self,
+        *,
+        market: str,
+        as_of: date,
+        rows: list[ScreenerRow],
+        warnings: list[str],
+        used_fallback: bool,
+        pykrx_enabled: bool,
+    ) -> ScreenerResponse:
+        data_source, data_source_note = self._limited_response_fields(
+            used_fallback, pykrx_enabled
+        )
+        return ScreenerResponse(
+            market=market,
+            as_of=as_of,
+            count=len(rows),
+            rows=rows,
+            data_source=data_source,
+            data_source_note=data_source_note,
+            warnings=warnings,
+        )
 
     def _evaluate(self, frame: FactorFrame, ticker: str):
         inputs = frame.factor_inputs.get(ticker)
@@ -74,7 +104,7 @@ class ScreenerService:
         try:
             return evaluate_screener_posterior(inputs, prior_odds=self._prior_odds)
         except Exception:
-            logger.exception("Bayesian evaluation failed for %s", ticker)
+            logger.debug("Bayesian evaluation failed for %s; using neutral prior", ticker, exc_info=True)
             return _neutral_bayes()
 
     def _series_value(self, series, ticker: str, default: float = 0.0) -> float:
@@ -126,16 +156,14 @@ class ScreenerService:
         try:
             frame = self.pipeline.run(tickers, market)
         except Exception as exc:
-            logger.exception("Factor pipeline failed")
-            warnings.append(
-                f"데이터 수집 중 오류가 발생해 빈 결과를 반환합니다. ({exc.__class__.__name__})"
-            )
+            logger.warning("Factor pipeline failed: %s", exc.__class__.__name__)
+            warnings.append("데이터 수집 중 일부 오류가 발생해 결과가 제한될 수 있습니다.")
             return []
 
         try:
             names = self.pykrx.get_names(tickers)
         except Exception:
-            logger.exception("Ticker name lookup failed")
+            logger.debug("Ticker name lookup failed; using ticker codes", exc_info=True)
             names = {ticker: ticker for ticker in tickers}
 
         rows: list[ScreenerRow] = []
@@ -148,11 +176,11 @@ class ScreenerService:
                     )
                 )
             except Exception:
-                logger.exception("Skipping ticker %s due to row build failure", ticker)
+                logger.debug("Skipping ticker %s due to row build failure", ticker, exc_info=True)
                 continue
 
         if not rows and tickers:
-            warnings.append("종목 데이터를 처리하지 못했습니다. KRX/pykrx 연결 상태를 확인하세요.")
+            warnings.append("종목 데이터를 처리하지 못했습니다.")
 
         rows.sort(key=lambda r: r.posterior_up_prob, reverse=True)
         return [row.model_copy(update={"rank": idx}) for idx, row in enumerate(rows, start=1)]
@@ -164,45 +192,43 @@ class ScreenerService:
         limit: int | None = None,
     ) -> ScreenerResponse:
         warnings: list[str] = []
-        if not should_use_pykrx():
-            warnings.append(
-                "KRX/pykrx 데이터 미사용(KRX_ID·KRX_PW 미설정). "
-                "fallback 20종목 + yfinance 팩터만 반영됩니다."
-            )
+        pykrx_enabled = should_use_pykrx()
+        used_fallback = False
         try:
-            tickers = self._resolve_tickers(market, limit)
+            tickers, used_fallback = self._resolve_tickers(market, limit)
             if not tickers:
-                warnings.append("조회 가능한 종목이 없습니다. fallback 유니버스를 확인하세요.")
-                return ScreenerResponse(
+                warnings.append("조회 가능한 종목이 없습니다.")
+                return self._response(
                     market=market,
                     as_of=date.today(),
-                    count=0,
                     rows=[],
                     warnings=warnings,
+                    used_fallback=True,
+                    pykrx_enabled=pykrx_enabled,
                 )
 
             rows = self._build_rows(market, tickers, warnings)
             if min_prob is not None:
                 rows = [r for r in rows if r.posterior_up_prob >= min_prob]
             as_of = rows[0].as_of if rows else date.today()
-            return ScreenerResponse(
+            return self._response(
                 market=market,
                 as_of=as_of,
-                count=len(rows),
                 rows=rows,
                 warnings=warnings,
+                used_fallback=used_fallback,
+                pykrx_enabled=pykrx_enabled,
             )
         except Exception as exc:
-            logger.exception("Screener request failed")
-            warnings.append(
-                f"스크리닝 처리 중 예기치 않은 오류가 발생했습니다. ({exc.__class__.__name__})"
-            )
-            return ScreenerResponse(
+            logger.warning("Screener request failed: %s", exc.__class__.__name__)
+            warnings.append("스크리닝 처리 중 예기치 않은 오류가 발생했습니다.")
+            return self._response(
                 market=market,
                 as_of=date.today(),
-                count=0,
                 rows=[],
                 warnings=warnings,
+                used_fallback=True,
+                pykrx_enabled=pykrx_enabled,
             )
 
     def _build_breakdown(self, row: ScreenerRow, bayes) -> list[FactorBreakdown]:
@@ -252,5 +278,5 @@ class ScreenerService:
                 breakdown=self._build_breakdown(row, bayes),
             )
         except Exception:
-            logger.exception("Stock detail failed for %s", ticker)
+            logger.debug("Stock detail failed for %s", ticker, exc_info=True)
             return None
