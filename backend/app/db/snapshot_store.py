@@ -154,6 +154,65 @@ class SnapshotStore:
             "factor_snapshots": int(factor_count),
         }
 
+    def list_factor_snapshot_dates(
+        self,
+        market: str,
+        start_date: date | None = None,
+        end_date: date | None = None,
+    ) -> list[date]:
+        if not settings.snapshot_enabled:
+            return []
+        query = """
+            SELECT DISTINCT snapshot_date
+            FROM factor_snapshots
+            WHERE market = ?
+        """
+        params: list[str] = [market.upper()]
+        if start_date is not None:
+            query += " AND snapshot_date >= ?"
+            params.append(today_iso(start_date))
+        if end_date is not None:
+            query += " AND snapshot_date <= ?"
+            params.append(today_iso(end_date))
+        query += " ORDER BY snapshot_date"
+        with get_connection() as conn:
+            rows = conn.execute(query, params).fetchall()
+        dates: list[date] = []
+        for row in rows:
+            try:
+                dates.append(date.fromisoformat(str(row["snapshot_date"])))
+            except ValueError:
+                continue
+        return dates
+
+    def load_best_factor_frame(
+        self,
+        market: str,
+        snapshot_date: date,
+    ) -> FactorFrame | None:
+        """Load the factor snapshot with the largest ticker universe for a date."""
+        if not settings.snapshot_enabled:
+            return None
+        day = today_iso(snapshot_date)
+        with get_connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT frame_json, tickers_key
+                FROM factor_snapshots
+                WHERE snapshot_date = ? AND market = ?
+                ORDER BY LENGTH(tickers_key) DESC
+                LIMIT 1
+                """,
+                (day, market.upper()),
+            ).fetchall()
+        if not rows:
+            return None
+        try:
+            return factor_frame_from_json(rows[0]["frame_json"])
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+            logger.warning("Corrupt factor snapshot ignored: %s %s", day, market)
+            return None
+
 
 _store: SnapshotStore | None = None
 

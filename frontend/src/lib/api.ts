@@ -1,4 +1,5 @@
 import type { ScreenerResponse, StockDetailResponse } from "@/types/screener";
+import type { BacktestQueryParams, BacktestResponse } from "@/types/backtest";
 import {
   buildApiUrl,
   getApiConnectionHint,
@@ -10,6 +11,7 @@ import {
   screenerQueryString,
   type ScreenerQueryParams,
 } from "@/lib/screener-query";
+import { backtestQueryString } from "@/lib/backtest-query";
 
 export { getApiBaseForDebug };
 export { ApiError, getUserErrorMessage } from "@/lib/api-errors";
@@ -56,4 +58,8 @@ export function getStockDetail(
   return fetchJson<StockDetailResponse>(
     `/api/v1/screener/${ticker}${screenerDetailQueryString(market)}`
   );
+}
+
+export function runBacktest(params?: BacktestQueryParams): Promise<BacktestResponse> {
+  return fetchJson<BacktestResponse>(`/api/v1/backtest${backtestQueryString(params)}`);
 }

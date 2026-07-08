@@ -84,5 +84,27 @@ def test_snapshot_store_universe_and_factor(tmp_path: Path, monkeypatch: pytest.
     assert stats["factor_snapshots"] == 1
 
 
+def test_list_factor_snapshot_dates_and_best_frame(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    db_file = tmp_path / "test.db"
+    monkeypatch.setattr(settings, "sqlite_path", str(db_file))
+    monkeypatch.setattr(settings, "snapshot_enabled", True)
+
+    init_database()
+    store = SnapshotStore()
+
+    frame_small = _sample_frame()
+    frame_small.tickers = ["005930"]
+    store.save_factor_frame("KOSPI", ["005930"], frame_small, date(2026, 7, 1))
+    store.save_factor_frame("KOSPI", frame_small.tickers, _sample_frame(), date(2026, 7, 1))
+    store.save_factor_frame("KOSPI", _sample_frame().tickers, _sample_frame(), date(2026, 7, 8))
+
+    dates = store.list_factor_snapshot_dates("KOSPI")
+    assert dates == [date(2026, 7, 1), date(2026, 7, 8)]
+
+    best = store.load_best_factor_frame("KOSPI", date(2026, 7, 1))
+    assert best is not None
+    assert len(best.tickers) == 2
+
+
 def test_tickers_key_is_order_independent():
     assert tickers_key(["000660", "005930"]) == tickers_key(["005930", "000660"])
