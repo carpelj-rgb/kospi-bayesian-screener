@@ -1,0 +1,20 @@
+{
+  "name": "kospi-bayesian-screener",
+  "private": true,
+  "description": "Monorepo root. Next.js app is in frontend/.",
+  "workspaces": [
+    "frontend"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace=kospi-factor-screener-frontend",
+    "dev": "npm run dev --workspace=kospi-factor-screener-frontend"
+  },
+  "dependencies": {
+    "next": "^14.2.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

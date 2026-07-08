@@ -46,6 +46,26 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 docker compose up --build
 ```
 
+## 배포 (Render + Vercel)
+
+### Render (백엔드)
+
+- `render.yaml` — Docker, 서비스명 `kospi-bayesian-screener`
+- URL: `https://kospi-bayesian-screener.onrender.com`
+- 선택 env: `KRX_ID`, `KRX_PW`, `CORS_ORIGINS`, `FRONTEND_URL`
+
+### Vercel (프론트엔드)
+
+Next.js 앱은 **`frontend/`** 폴더에 있습니다. Vercel 프로젝트에서 아래를 설정하세요.
+
+1. **Settings → General → Root Directory** → `frontend` 로 지정 후 Save
+2. **Settings → Environment Variables**
+   - `BACKEND_URL` = `https://kospi-bayesian-screener.onrender.com` (Production)
+   - `NEXT_PUBLIC_API_URL` 은 **설정하지 않음** (브라우저 CORS 회피용 same-origin 프록시 사용)
+3. Redeploy
+
+루트에 `package.json` / `vercel.json` 도 포함되어 있어 Root Directory 없이 빌드할 때를 대비했지만, **Root Directory = `frontend` 가 가장 안정적**입니다.
+
 ## API
 
 | Method | Endpoint | 설명 |
