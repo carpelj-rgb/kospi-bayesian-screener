@@ -4,6 +4,7 @@ services:
     ports:
       - "8000:8000"
     environment:
+      PORT: "8000"
       DEBUG: "false"
       FRONTEND_URL: http://localhost:3000
       CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
