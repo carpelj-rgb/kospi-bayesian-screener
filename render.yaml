@@ -22,3 +22,8 @@ services:
         value: "true"
       - key: CACHE_TTL_SECONDS
         value: "86400"
+      - key: SNAPSHOT_ENABLED
+        value: "true"
+      - key: SQLITE_PATH
+        value: "/code/data/screener.db"
+    # Render persistent disk (paid): mount at /code/data to retain SQLite snapshots

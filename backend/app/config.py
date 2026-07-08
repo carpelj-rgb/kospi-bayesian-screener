@@ -78,6 +78,9 @@ class Settings(BaseSettings):
     cache_ttl_seconds: int = 86_400
     cache_max_entries: int = 256
 
+    snapshot_enabled: bool = True
+    sqlite_path: str = "data/screener.db"
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def parse_cors_origins(cls, value: Any) -> list[str]:

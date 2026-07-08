@@ -39,9 +39,18 @@ def read_health_head_alias() -> Response:
 @app.on_event("startup")
 def on_startup() -> None:
     from app.data.providers.cache import get_data_cache
+    from app.db.connection import init_database, resolve_sqlite_path
+    from app.db.snapshot_store import get_snapshot_store
 
     get_data_cache()
-    logger.info("API ready — health probe: GET|HEAD /api/v1/health")
+    db_path = init_database()
+    if settings.snapshot_enabled:
+        get_snapshot_store()
+    logger.info(
+        "API ready — health: GET|HEAD /api/v1/health | sqlite=%s snapshot=%s",
+        db_path,
+        settings.snapshot_enabled,
+    )
 
 
 app.add_middleware(

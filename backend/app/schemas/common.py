@@ -8,3 +8,6 @@ class HealthResponse(BaseModel):
     uptime_seconds: float = 0.0
     cache_enabled: bool = True
     cache_entries: int = 0
+    snapshot_enabled: bool = True
+    snapshot_universe_rows: int = 0
+    snapshot_factor_rows: int = 0

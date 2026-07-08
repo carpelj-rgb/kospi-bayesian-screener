@@ -8,8 +8,10 @@ services:
       DEBUG: "false"
       FRONTEND_URL: http://localhost:3000
       CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
-      # KRX_ID: ${KRX_ID:-}
-      # KRX_PW: ${KRX_PW:-}
+      SQLITE_PATH: /code/data/screener.db
+      SNAPSHOT_ENABLED: "true"
+    volumes:
+      - backend-data:/code/data
 
   frontend:
     build:
@@ -23,3 +25,6 @@ services:
       BACKEND_URL: http://backend:8000
     depends_on:
       - backend
+
+volumes:
+  backend-data:

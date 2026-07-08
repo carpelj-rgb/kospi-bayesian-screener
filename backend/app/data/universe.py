@@ -1,5 +1,6 @@
 from datetime import date
 
+from app.config import settings
 from app.data.providers.cache import cache_key, get_or_fetch
 from app.data.providers.krx_config import get_stock_module, should_use_pykrx
 
@@ -67,9 +68,26 @@ def _fetch_tickers(market: str) -> tuple[list[str], bool]:
 
 
 def get_tickers(market: str = "KOSPI") -> tuple[list[str], bool]:
-    """Return tickers and whether fallback universe was used (cached 24h by default)."""
-    key = cache_key("universe", market.upper(), date.today().isoformat())
-    return get_or_fetch(key, lambda: _fetch_tickers(market))
+    """Return tickers and whether fallback universe was used."""
+    market_upper = market.upper()
+    today = date.today()
+
+    if settings.snapshot_enabled:
+        from app.db.snapshot_store import get_snapshot_store
+
+        snapshot = get_snapshot_store().load_universe(market_upper, today)
+        if snapshot is not None:
+            return snapshot.tickers, snapshot.used_fallback
+
+    key = cache_key("universe", market_upper, today.isoformat())
+    tickers, used_fallback = get_or_fetch(key, lambda: _fetch_tickers(market_upper))
+
+    if settings.snapshot_enabled:
+        from app.db.snapshot_store import get_snapshot_store
+
+        get_snapshot_store().save_universe(market_upper, tickers, used_fallback, today)
+
+    return tickers, used_fallback
 
 
 def get_ticker_name(ticker: str) -> str:

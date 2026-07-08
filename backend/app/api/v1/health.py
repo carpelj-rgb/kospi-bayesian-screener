@@ -2,6 +2,7 @@ from fastapi import APIRouter, Response
 
 from app.config import settings
 from app.data.providers.cache import cache_stats
+from app.db.snapshot_store import get_snapshot_store
 from app.runtime import uptime_seconds
 from app.schemas.common import HealthResponse
 
@@ -10,6 +11,11 @@ router = APIRouter()
 
 def _health_payload() -> HealthResponse:
     stats = cache_stats()
+    snapshot_stats = (
+        get_snapshot_store().stats()
+        if settings.snapshot_enabled
+        else {"universe_snapshots": 0, "factor_snapshots": 0}
+    )
     return HealthResponse(
         status="ok",
         app=settings.app_name,
@@ -17,6 +23,9 @@ def _health_payload() -> HealthResponse:
         uptime_seconds=uptime_seconds(),
         cache_enabled=bool(stats["cache_enabled"]),
         cache_entries=int(stats["cache_entries"]),
+        snapshot_enabled=settings.snapshot_enabled,
+        snapshot_universe_rows=int(snapshot_stats["universe_snapshots"]),
+        snapshot_factor_rows=int(snapshot_stats["factor_snapshots"]),
     )
 
 

@@ -107,13 +107,30 @@ class FactorPipeline:
         if not tickers:
             return _empty_frame([])
 
+        market_upper = market.upper()
+        today = date.today()
+
+        if settings.snapshot_enabled:
+            from app.db.snapshot_store import get_snapshot_store
+
+            snapshot = get_snapshot_store().load_factor_frame(market_upper, tickers, today)
+            if snapshot is not None:
+                return snapshot
+
         key = cache_key(
             "pipeline",
-            market.upper(),
-            date.today().isoformat(),
+            market_upper,
+            today.isoformat(),
             ",".join(sorted(tickers)),
         )
-        return get_or_fetch(key, lambda: self._run_uncached(tickers, market))
+        frame = get_or_fetch(key, lambda: self._run_uncached(tickers, market_upper))
+
+        if settings.snapshot_enabled:
+            from app.db.snapshot_store import get_snapshot_store
+
+            get_snapshot_store().save_factor_frame(market_upper, tickers, frame, today)
+
+        return frame
 
     def _run_uncached(self, tickers: list[str], market: str = "KOSPI") -> FactorFrame:
         try:

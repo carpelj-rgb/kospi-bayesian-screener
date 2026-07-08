@@ -127,5 +127,6 @@ log(Odds_post) = log(Odds_prior) + Σ wᵢ·log(LRᵢ) + Σ bonus·log(LR_aux)
 
 - pykrx/yfinance는 **장 마감 후** 데이터 반영이 지연될 수 있습니다.
 - pykrx는 **별도 KRX 회원 로그인 없이** 공개 API로 시도하며, 실패 시 fallback 유니버스 + yfinance로 자동 전환됩니다. API 응답의 `data_source: "limited"` 로 제한 모드를 확인할 수 있습니다.
+- **SQLite 일별 스냅샷**: `backend/data/screener.db` (Docker: `/code/data/screener.db`) — 당일 수집 데이터는 재요청 시 API 대신 DB에서 조회합니다. `SNAPSHOT_ENABLED=false` 로 비활성화 가능.
 - EPS 데이터는 yfinance 커버리지에 따라 일부 종목에서 누락될 수 있습니다.
 - 본 프로젝트는 **투자 참고용**이며 투자 손실에 대한 책임을 지지 않습니다.
