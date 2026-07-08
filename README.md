@@ -56,15 +56,27 @@ docker compose up --build
 
 ### Vercel (프론트엔드)
 
-Next.js 앱은 **`frontend/`** 폴더에 있습니다. Vercel 프로젝트에서 아래를 설정하세요.
+Next.js 앱은 **`frontend/`** 폴더에 있습니다.
 
-1. **Settings → General → Root Directory** → `frontend` 로 지정 후 Save
-2. **Settings → Environment Variables**
-   - `BACKEND_URL` = `https://kospi-bayesian-screener.onrender.com` (Production)
-   - `NEXT_PUBLIC_API_URL` 은 **설정하지 않음** (브라우저 CORS 회피용 same-origin 프록시 사용)
-3. Redeploy
+#### 필수: Root Directory 설정
 
-루트에 `package.json` / `vercel.json` 도 포함되어 있어 Root Directory 없이 빌드할 때를 대비했지만, **Root Directory = `frontend` 가 가장 안정적**입니다.
+Vercel 대시보드에서 **반드시** Root Directory를 `frontend`로 지정하세요.
+
+1. [Vercel Dashboard](https://vercel.com) → 프로젝트 선택
+2. **Settings → General → Root Directory** → **Edit**
+3. `frontend` 입력 → **Save**
+4. **Deployments** → 최신 `main` 커밋으로 **Redeploy** (이전 커밋 `3cd4799` 등 재배포 X)
+
+Root Directory = `frontend` 이면 `frontend/package.json`의 Next.js가 정상 감지됩니다.
+
+#### 환경 변수
+
+- `BACKEND_URL` = `https://kospi-bayesian-screener.onrender.com` (Production)
+- `NEXT_PUBLIC_API_URL` 은 **설정하지 않음** (same-origin 프록시 사용)
+
+#### Fallback (Root Directory를 `.` 로 둘 때)
+
+루트 `package.json` / `vercel.json` 이 `frontend/` 빌드를 대신 실행하지만, **Root Directory = `frontend` 가 가장 안정적**입니다.
 
 ## API
 

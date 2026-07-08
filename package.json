@@ -1,18 +1,15 @@
 {
   "name": "kospi-bayesian-screener",
   "private": true,
-  "description": "Monorepo root. Next.js app is in frontend/.",
-  "workspaces": [
-    "frontend"
-  ],
-  "scripts": {
-    "build": "npm run build --workspace=kospi-factor-screener-frontend",
-    "dev": "npm run dev --workspace=kospi-factor-screener-frontend"
-  },
+  "description": "Monorepo root. Next.js app lives in frontend/. Prefer Vercel Root Directory = frontend.",
   "dependencies": {
-    "next": "^14.2.0",
+    "next": "14.2.35",
     "react": "^18.3.0",
     "react-dom": "^18.3.0"
+  },
+  "scripts": {
+    "build": "npm run build --prefix frontend",
+    "vercel-build": "npm ci --prefix frontend && npm run build --prefix frontend"
   },
   "engines": {
     "node": ">=18"
