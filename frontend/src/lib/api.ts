@@ -27,8 +27,12 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     const body = await res.text().catch(() => "");
+    const hint =
+      res.status === 404
+        ? " 백엔드(8000) 실행 여부 또는 Vercel BACKEND_URL(Render URL) 설정을 확인하세요."
+        : "";
     throw new Error(
-      `API error ${res.status} (${url})${body ? `: ${body.slice(0, 120)}` : ""}`
+      `API error ${res.status} (${url})${body ? `: ${body.slice(0, 120)}` : ""}${hint}`
     );
   }
   return res.json() as Promise<T>;
