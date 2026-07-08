@@ -4,7 +4,7 @@ configure_pykrx()
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 import logging
 
 from app.api.v1.router import router as v1_router
@@ -29,6 +29,19 @@ def read_root() -> dict[str, str]:
 def read_health_alias() -> dict[str, str]:
     """Lightweight health alias for load balancers (primary: /api/v1/health)."""
     return {"status": "ok", "health": "/api/v1/health"}
+
+
+@app.head("/health", include_in_schema=False)
+def read_health_head_alias() -> Response:
+    return Response(status_code=200, headers={"Cache-Control": "no-store", "X-App-Status": "ok"})
+
+
+@app.on_event("startup")
+def on_startup() -> None:
+    from app.data.providers.cache import get_data_cache
+
+    get_data_cache()
+    logger.info("API ready — health probe: GET|HEAD /api/v1/health")
 
 
 app.add_middleware(

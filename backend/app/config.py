@@ -74,6 +74,10 @@ class Settings(BaseSettings):
     earnings_surprise_threshold: float = 0.0
     auxiliary_bonus_weight: float = 0.12
 
+    cache_enabled: bool = True
+    cache_ttl_seconds: int = 86_400
+    cache_max_entries: int = 256
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def parse_cors_origins(cls, value: Any) -> list[str]:

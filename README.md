@@ -52,7 +52,8 @@ docker compose up --build
 
 - `render.yaml` — Docker, 서비스명 `kospi-bayesian-screener`
 - URL: `https://kospi-bayesian-screener.onrender.com`
-- 선택 env: `CORS_ORIGINS`, `FRONTEND_URL` (`PYKRX_ENABLED=false` 로 pykrx 비활성화 가능)
+- Health probe: `GET|HEAD /api/v1/health` (데이터 fetch 없음, cold start 대비 cron ping 권장)
+- 선택 env: `CORS_ORIGINS`, `FRONTEND_URL`, `CACHE_TTL_SECONDS` (기본 86400), `CACHE_ENABLED`
 
 ### Vercel (프론트엔드)
 

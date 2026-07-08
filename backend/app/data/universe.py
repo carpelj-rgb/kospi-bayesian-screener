@@ -1,3 +1,6 @@
+from datetime import date
+
+from app.data.providers.cache import cache_key, get_or_fetch
 from app.data.providers.krx_config import get_stock_module, should_use_pykrx
 
 # KRX API 장애 시 사용하는 KOSPI 대표 종목 (시가총액 상위)
@@ -48,11 +51,7 @@ FALLBACK_NAMES = {
 }
 
 
-def get_tickers(market: str = "KOSPI") -> tuple[list[str], bool]:
-    """
-    Return tickers and whether fallback universe was used.
-    pykrx failures are handled silently; no credentials required.
-    """
+def _fetch_tickers(market: str) -> tuple[list[str], bool]:
     if not should_use_pykrx():
         return FALLBACK_KOSPI_TICKERS.copy(), True
 
@@ -67,10 +66,21 @@ def get_tickers(market: str = "KOSPI") -> tuple[list[str], bool]:
     return FALLBACK_KOSPI_TICKERS.copy(), True
 
 
+def get_tickers(market: str = "KOSPI") -> tuple[list[str], bool]:
+    """Return tickers and whether fallback universe was used (cached 24h by default)."""
+    key = cache_key("universe", market.upper(), date.today().isoformat())
+    return get_or_fetch(key, lambda: _fetch_tickers(market))
+
+
 def get_ticker_name(ticker: str) -> str:
     if not should_use_pykrx():
         return FALLBACK_NAMES.get(ticker, ticker)
 
+    key = cache_key("ticker_name", ticker)
+    return get_or_fetch(key, lambda: _lookup_ticker_name(ticker))
+
+
+def _lookup_ticker_name(ticker: str) -> str:
     try:
         stock = get_stock_module()
         name = stock.get_market_ticker_name(ticker)
@@ -78,5 +88,4 @@ def get_ticker_name(ticker: str) -> str:
             return name
     except Exception:
         pass
-
     return FALLBACK_NAMES.get(ticker, ticker)

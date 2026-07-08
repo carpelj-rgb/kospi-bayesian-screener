@@ -18,3 +18,7 @@ services:
         sync: false
       - key: CORS_ORIGIN_REGEX
         value: "https://.*\\.vercel\\.app"
+      - key: CACHE_ENABLED
+        value: "true"
+      - key: CACHE_TTL_SECONDS
+        value: "86400"

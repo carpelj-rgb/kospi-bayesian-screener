@@ -6,6 +6,7 @@ from datetime import date, timedelta
 import pandas as pd
 
 from app.data.providers.krx_config import get_stock_module, should_use_pykrx
+from app.data.providers.cache import cache_key, get_or_fetch
 from app.data.universe import get_ticker_name
 
 
@@ -13,10 +14,19 @@ def _to_yyyymmdd(d: date) -> str:
     return d.strftime("%Y%m%d")
 
 
+def _tickers_key(tickers: list[str]) -> str:
+    return ",".join(sorted(tickers))
+
+
 def _latest_business_day(reference: date | None = None) -> date:
     ref = reference or date.today()
     if not should_use_pykrx():
         return ref
+    key = cache_key("pykrx:bday", ref.isoformat())
+    return get_or_fetch(key, lambda: _resolve_latest_business_day(ref))
+
+
+def _resolve_latest_business_day(ref: date) -> date:
     stock = get_stock_module()
     for offset in range(0, 14):
         candidate = ref - timedelta(days=offset)
@@ -44,6 +54,10 @@ class PykrxClient:
     def get_prices(self, tickers: list[str], as_of: date, market: str = "KOSPI") -> pd.Series:
         if not self._enabled:
             return pd.Series(dtype="float64")
+        key = cache_key("pykrx:prices", market.upper(), as_of.isoformat(), _tickers_key(tickers))
+        return get_or_fetch(key, lambda: self._fetch_prices(tickers, as_of, market))
+
+    def _fetch_prices(self, tickers: list[str], as_of: date, market: str) -> pd.Series:
         stock = get_stock_module()
         ymd = _to_yyyymmdd(as_of)
         try:
@@ -68,6 +82,10 @@ class PykrxClient:
     def get_pbr(self, tickers: list[str], as_of: date, market: str = "KOSPI") -> pd.Series:
         if not self._enabled:
             return pd.Series(dtype="float64")
+        key = cache_key("pykrx:pbr", market.upper(), as_of.isoformat(), _tickers_key(tickers))
+        return get_or_fetch(key, lambda: self._fetch_pbr(tickers, as_of, market))
+
+    def _fetch_pbr(self, tickers: list[str], as_of: date, market: str) -> pd.Series:
         stock = get_stock_module()
         ymd = _to_yyyymmdd(as_of)
         try:
@@ -121,6 +139,14 @@ class PykrxClient:
     ) -> dict[str, list[float]]:
         if not self._enabled:
             return {ticker: [] for ticker in tickers}
+        key = cache_key(
+            "pykrx:inst_net", as_of.isoformat(), days, _tickers_key(tickers)
+        )
+        return get_or_fetch(key, lambda: self._fetch_inst_net_daily(tickers, as_of, days))
+
+    def _fetch_inst_net_daily(
+        self, tickers: list[str], as_of: date, days: int
+    ) -> dict[str, list[float]]:
         stock = get_stock_module()
         start = as_of - timedelta(days=days * 3)
         ymd_start = _to_yyyymmdd(start)
@@ -152,6 +178,16 @@ class PykrxClient:
     ) -> dict[str, list[float]]:
         if not self._enabled:
             return {ticker: [] for ticker in tickers}
+        key = cache_key(
+            "pykrx:combined_net", as_of.isoformat(), days, _tickers_key(tickers)
+        )
+        return get_or_fetch(
+            key, lambda: self._fetch_combined_net_daily(tickers, as_of, days)
+        )
+
+    def _fetch_combined_net_daily(
+        self, tickers: list[str], as_of: date, days: int
+    ) -> dict[str, list[float]]:
         stock = get_stock_module()
         start = as_of - timedelta(days=days * 3)
         ymd_start = _to_yyyymmdd(start)
@@ -190,6 +226,14 @@ class PykrxClient:
     ) -> dict[str, pd.DataFrame]:
         if not self._enabled:
             return {ticker: pd.DataFrame() for ticker in tickers}
+        key = cache_key(
+            "pykrx:ohlcv", as_of.isoformat(), days, _tickers_key(tickers)
+        )
+        return get_or_fetch(key, lambda: self._fetch_ohlcv_history(tickers, as_of, days))
+
+    def _fetch_ohlcv_history(
+        self, tickers: list[str], as_of: date, days: int
+    ) -> dict[str, pd.DataFrame]:
         stock = get_stock_module()
         start = as_of - timedelta(days=int(days * 1.6))
         ymd_start = _to_yyyymmdd(start)
@@ -218,6 +262,14 @@ class PykrxClient:
     ) -> dict[str, tuple[float | None, float | None]]:
         if not self._enabled:
             return {ticker: (None, None) for ticker in tickers}
+        key = cache_key(
+            "pykrx:roe", as_of.isoformat(), periods, _tickers_key(tickers)
+        )
+        return get_or_fetch(key, lambda: self._fetch_roe_series(tickers, as_of, periods))
+
+    def _fetch_roe_series(
+        self, tickers: list[str], as_of: date, periods: int
+    ) -> dict[str, tuple[float | None, float | None]]:
         stock = get_stock_module()
         start = as_of - timedelta(days=periods * 120)
         ymd_start = _to_yyyymmdd(start)

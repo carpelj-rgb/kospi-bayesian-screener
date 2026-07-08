@@ -7,6 +7,7 @@ from datetime import date
 import pandas as pd
 
 from app.config import settings
+from app.data.providers.cache import cache_key, get_or_fetch
 from app.data.providers.pykrx_client import PykrxClient
 from app.data.providers.yfinance_client import YFinanceClient
 from app.factors.models import TickerFactorInputs
@@ -106,6 +107,15 @@ class FactorPipeline:
         if not tickers:
             return _empty_frame([])
 
+        key = cache_key(
+            "pipeline",
+            market.upper(),
+            date.today().isoformat(),
+            ",".join(sorted(tickers)),
+        )
+        return get_or_fetch(key, lambda: self._run_uncached(tickers, market))
+
+    def _run_uncached(self, tickers: list[str], market: str = "KOSPI") -> FactorFrame:
         try:
             as_of = self.pykrx.latest_business_day()
         except Exception:

@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
+from datetime import date
 
 import pandas as pd
 import yfinance as yf
 
+from app.data.providers.cache import cache_key, get_or_fetch
 from app.data.providers.financial_models import FinancialStabilityData, InsiderData
 
 
@@ -47,6 +49,17 @@ class YFinanceClient:
     def get_revision_data(
         self, tickers: list[str], market: str = "KOSPI"
     ) -> dict[str, RevisionData]:
+        key = cache_key(
+            "yf:revision",
+            market.upper(),
+            date.today().isoformat(),
+            ",".join(sorted(tickers)),
+        )
+        return get_or_fetch(key, lambda: self._fetch_revision_data(tickers, market))
+
+    def _fetch_revision_data(
+        self, tickers: list[str], market: str
+    ) -> dict[str, RevisionData]:
         def _one(ticker: str, symbol: str) -> RevisionData:
             t = yf.Ticker(symbol)
             return RevisionData(
@@ -63,6 +76,17 @@ class YFinanceClient:
     def get_insider_data(
         self, tickers: list[str], market: str = "KOSPI"
     ) -> dict[str, InsiderData]:
+        key = cache_key(
+            "yf:insider",
+            market.upper(),
+            date.today().isoformat(),
+            ",".join(sorted(tickers)),
+        )
+        return get_or_fetch(key, lambda: self._fetch_insider_data(tickers, market))
+
+    def _fetch_insider_data(
+        self, tickers: list[str], market: str
+    ) -> dict[str, InsiderData]:
         def _one(ticker: str, symbol: str) -> InsiderData:
             return self._parse_insider_data(yf.Ticker(symbol))
 
@@ -74,6 +98,17 @@ class YFinanceClient:
 
     def get_financial_stability_data(
         self, tickers: list[str], market: str = "KOSPI"
+    ) -> dict[str, FinancialStabilityData]:
+        key = cache_key(
+            "yf:financial",
+            market.upper(),
+            date.today().isoformat(),
+            ",".join(sorted(tickers)),
+        )
+        return get_or_fetch(key, lambda: self._fetch_financial_stability_data(tickers, market))
+
+    def _fetch_financial_stability_data(
+        self, tickers: list[str], market: str
     ) -> dict[str, FinancialStabilityData]:
         def _one(ticker: str, symbol: str) -> FinancialStabilityData:
             return self._parse_financial_stability(yf.Ticker(symbol))
