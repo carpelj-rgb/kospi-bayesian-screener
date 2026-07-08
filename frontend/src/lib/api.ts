@@ -4,6 +4,7 @@ import {
   getApiConnectionHint,
   getApiBaseForDebug,
 } from "@/lib/api-config";
+import { ApiError, userMessageForStatus } from "@/lib/api-errors";
 import {
   screenerDetailQueryString,
   screenerQueryString,
@@ -11,6 +12,7 @@ import {
 } from "@/lib/screener-query";
 
 export { getApiBaseForDebug };
+export { ApiError, getUserErrorMessage } from "@/lib/api-errors";
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const url = buildApiUrl(path);
@@ -24,20 +26,20 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
         ...init?.headers,
       },
     });
-  } catch {
-    throw new Error(
-      `네트워크 오류: ${url} 에 연결하지 못했습니다. ${getApiConnectionHint()}`
+  } catch (cause) {
+    throw new ApiError(
+      0,
+      "서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+      cause instanceof Error ? cause.message : getApiConnectionHint()
     );
   }
 
   if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    const hint =
-      res.status === 404
-        ? " 백엔드(8000) 실행 여부 또는 Vercel BACKEND_URL(Render URL) 설정을 확인하세요."
-        : "";
-    throw new Error(
-      `API error ${res.status} (${url})${body ? `: ${body.slice(0, 120)}` : ""}${hint}`
+    await res.text().catch(() => "");
+    throw new ApiError(
+      res.status,
+      userMessageForStatus(res.status),
+      `${res.status} ${url}`
     );
   }
   return res.json() as Promise<T>;

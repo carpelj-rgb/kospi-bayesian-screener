@@ -2,8 +2,12 @@
 
 import { useCallback, useMemo, useState } from "react";
 import type { ScreenerResponse, ScreenerRow } from "@/types/screener";
-import { getScreener, getStockDetail } from "@/lib/api";
+import { getScreener, getStockDetail, getUserErrorMessage } from "@/lib/api";
+import { useScreeningProgress } from "@/hooks/useScreeningProgress";
+import { ScreeningProgress } from "./ScreeningProgress";
 import { ScreenerTable } from "./ScreenerTable";
+
+type LoadingMode = "screening" | "search" | null;
 
 function sortByPosterior(rows: ScreenerRow[]): ScreenerRow[] {
   return [...rows].sort(
@@ -27,37 +31,47 @@ export function ScreenerDashboard() {
   const [rows, setRows] = useState<ScreenerRow[]>([]);
   const [meta, setMeta] = useState<Pick<ScreenerResponse, "market" | "as_of" | "count"> | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingMode, setLoadingMode] = useState<LoadingMode>(null);
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [dataSourceNote, setDataSourceNote] = useState<string | null>(null);
   const [hasScreened, setHasScreened] = useState(false);
 
+  const showScreeningProgress = loading && loadingMode === "screening";
+  const { currentStep, stepIndex, steps } = useScreeningProgress(
+    showScreeningProgress,
+    market,
+    limit
+  );
+
+  const applyScreenerData = useCallback((data: ScreenerResponse) => {
+    setRows(sortByPosterior(data.rows));
+    setMeta({ market: data.market, as_of: data.as_of, count: data.count });
+    setDataSourceNote(
+      data.data_source === "limited"
+        ? data.data_source_note ?? "제한 모드로 계산된 결과입니다."
+        : null
+    );
+    setWarnings(data.warnings ?? []);
+    setHasScreened(true);
+  }, []);
+
   const runScreening = useCallback(async () => {
     setLoading(true);
+    setLoadingMode("screening");
     setError(null);
     setWarnings([]);
     setDataSourceNote(null);
     try {
       const data = await getScreener({ market, limit });
-      setRows(sortByPosterior(data.rows));
-      setMeta({ market: data.market, as_of: data.as_of, count: data.count });
-      setDataSourceNote(
-        data.data_source === "limited"
-          ? data.data_source_note ?? "제한 모드로 계산된 결과입니다."
-          : null
-      );
-      setWarnings(data.warnings ?? []);
-      setHasScreened(true);
+      applyScreenerData(data);
     } catch (e) {
-      setError(
-        e instanceof Error
-          ? e.message
-          : "스크리닝 데이터를 불러오지 못했습니다."
-      );
+      setError(getUserErrorMessage(e));
     } finally {
       setLoading(false);
+      setLoadingMode(null);
     }
-  }, [market, limit]);
+  }, [market, limit, applyScreenerData]);
 
   const searchTicker = useCallback(async () => {
     const trimmed = query.trim();
@@ -71,6 +85,7 @@ export function ScreenerDashboard() {
     }
 
     setLoading(true);
+    setLoadingMode("search");
     try {
       const isTicker = /^\d{6}$/.test(trimmed);
 
@@ -82,30 +97,26 @@ export function ScreenerDashboard() {
           as_of: detail.row.as_of,
           count: 1,
         });
+        setDataSourceNote(null);
+        setWarnings([]);
         setHasScreened(true);
         return;
       }
 
       if (!hasScreened) {
+        setLoadingMode("screening");
         const data = await getScreener({ market, limit });
-        setRows(sortByPosterior(data.rows));
-        setMeta({ market: data.market, as_of: data.as_of, count: data.count });
-        setDataSourceNote(
-          data.data_source === "limited"
-            ? data.data_source_note ?? "제한 모드로 계산된 결과입니다."
-            : null
-        );
-        setWarnings(data.warnings ?? []);
-        setHasScreened(true);
+        applyScreenerData(data);
       }
     } catch (e) {
       setError(
-        e instanceof Error ? e.message : "종목 검색에 실패했습니다."
+        getUserErrorMessage(e, "종목 검색에 실패했습니다. 잠시 후 다시 시도해 주세요.")
       );
     } finally {
       setLoading(false);
+      setLoadingMode(null);
     }
-  }, [query, market, limit, hasScreened, runScreening]);
+  }, [query, market, limit, hasScreened, runScreening, applyScreenerData]);
 
   const displayedRows = useMemo(() => {
     if (!query.trim()) {
@@ -118,6 +129,8 @@ export function ScreenerDashboard() {
     e.preventDefault();
     searchTicker();
   };
+
+  const controlsDisabled = loading;
 
   return (
     <div className="space-y-6">
@@ -136,7 +149,8 @@ export function ScreenerDashboard() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="예: 005930, 삼성전자"
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] px-4 py-2.5 text-sm outline-none ring-[var(--accent)] placeholder:text-[var(--muted)] focus:ring-2"
+              disabled={controlsDisabled}
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] px-4 py-2.5 text-sm outline-none ring-[var(--accent)] placeholder:text-[var(--muted)] focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60"
             />
           </div>
 
@@ -152,7 +166,8 @@ export function ScreenerDashboard() {
                 id="market-select"
                 value={market}
                 onChange={(e) => setMarket(e.target.value)}
-                className="rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                disabled={controlsDisabled}
+                className="rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <option value="KOSPI">KOSPI</option>
                 <option value="KOSDAQ">KOSDAQ</option>
@@ -170,7 +185,8 @@ export function ScreenerDashboard() {
                 id="limit-select"
                 value={limit}
                 onChange={(e) => setLimit(Number(e.target.value))}
-                className="rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                disabled={controlsDisabled}
+                className="rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <option value={20}>20종목</option>
                 <option value={30}>30종목</option>
@@ -182,29 +198,53 @@ export function ScreenerDashboard() {
           <div className="flex gap-2">
             <button
               type="submit"
-              disabled={loading}
-              className="rounded-lg border border-[var(--border)] bg-[var(--bg)] px-4 py-2.5 text-sm font-medium transition hover:bg-[var(--surface)] disabled:opacity-50"
+              disabled={controlsDisabled}
+              className="rounded-lg border border-[var(--border)] bg-[var(--bg)] px-4 py-2.5 text-sm font-medium transition hover:bg-[var(--surface)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               검색
             </button>
             <button
               type="button"
               onClick={runScreening}
-              disabled={loading}
-              className="rounded-lg bg-[var(--accent)] px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-50"
+              disabled={controlsDisabled}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--accent)] px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {loading ? "계산 중…" : "스크리닝 실행"}
+              {loading && loadingMode === "screening" ? (
+                <>
+                  <span
+                    className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"
+                    aria-hidden="true"
+                  />
+                  스크리닝 중…
+                </>
+              ) : (
+                "스크리닝 실행"
+              )}
             </button>
           </div>
         </form>
 
-        {meta && hasScreened && (
+        {meta && hasScreened && !showScreeningProgress && (
           <p className="mt-4 text-xs text-[var(--muted)]">
             {meta.market} · 기준일 {meta.as_of} · {displayedRows.length}종목
             {query.trim() ? " (필터 적용)" : ""}
           </p>
         )}
       </section>
+
+      {showScreeningProgress && (
+        <ScreeningProgress
+          currentStep={currentStep}
+          stepIndex={stepIndex}
+          steps={steps}
+        />
+      )}
+
+      {loading && loadingMode === "search" && (
+        <p className="text-center text-sm text-[var(--muted)] py-2" role="status">
+          종목 정보를 불러오는 중…
+        </p>
+      )}
 
       {dataSourceNote && (
         <div className="rounded-lg border border-amber-800/80 bg-amber-950/20 px-5 py-4">
@@ -226,13 +266,11 @@ export function ScreenerDashboard() {
 
       {error && (
         <div className="rounded-lg border border-red-800/80 bg-red-950/30 px-5 py-4">
-          <p className="font-medium text-red-300">오류</p>
+          <p className="font-medium text-red-300">요청을 완료하지 못했습니다</p>
           <p className="mt-1 text-sm text-[var(--muted)]">{error}</p>
           <p className="mt-2 text-xs text-[var(--muted)]">
-            백엔드 실행:{" "}
-            <code className="rounded bg-[var(--surface)] px-1 py-0.5">
-              uvicorn app.main:app --reload
-            </code>
+            문제가 계속되면 유니버스 종목 수를 줄이거나 1~2분 후 다시 시도해
+            주세요.
           </p>
         </div>
       )}
@@ -249,11 +287,6 @@ export function ScreenerDashboard() {
 
       {(hasScreened || loading) && (
         <>
-          {loading && (
-            <p className="text-center text-sm text-[var(--muted)] py-4">
-              API에서 데이터를 불러오는 중…
-            </p>
-          )}
           <ScreenerTable
             rows={
               loading && rows.length === 0
