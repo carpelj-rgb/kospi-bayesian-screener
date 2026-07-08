@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getBackendUrl, proxyToBackend } from "@/lib/backend-proxy";
+import { screenerDetailQueryString } from "@/lib/screener-query";
 
 export const maxDuration = 60;
 
@@ -7,7 +8,8 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { ticker: string } }
 ) {
-  const path = `/api/v1/screener/${params.ticker}${request.nextUrl.search}`;
+  const market = request.nextUrl.searchParams.get("market");
+  const path = `/api/v1/screener/${params.ticker}${screenerDetailQueryString(market ?? undefined)}`;
   try {
     const res = await proxyToBackend(path);
     const body = await res.text();

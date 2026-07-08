@@ -4,6 +4,11 @@ import {
   getApiConnectionHint,
   getApiBaseForDebug,
 } from "@/lib/api-config";
+import {
+  screenerDetailQueryString,
+  screenerQueryString,
+  type ScreenerQueryParams,
+} from "@/lib/screener-query";
 
 export { getApiBaseForDebug };
 
@@ -38,17 +43,8 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export function getScreener(params?: {
-  market?: string;
-  min_prob?: number;
-  limit?: number;
-}): Promise<ScreenerResponse> {
-  const search = new URLSearchParams();
-  if (params?.market) search.set("market", params.market);
-  if (params?.min_prob != null) search.set("min_prob", String(params.min_prob));
-  if (params?.limit != null) search.set("limit", String(params.limit));
-  const qs = search.toString();
-  return fetchJson<ScreenerResponse>(`/api/v1/screener${qs ? `?${qs}` : ""}`);
+export function getScreener(params?: ScreenerQueryParams): Promise<ScreenerResponse> {
+  return fetchJson<ScreenerResponse>(`/api/v1/screener${screenerQueryString(params)}`);
 }
 
 export function getStockDetail(
@@ -56,6 +52,6 @@ export function getStockDetail(
   market = "KOSPI"
 ): Promise<StockDetailResponse> {
   return fetchJson<StockDetailResponse>(
-    `/api/v1/screener/${ticker}?market=${market}`
+    `/api/v1/screener/${ticker}${screenerDetailQueryString(market)}`
   );
 }
