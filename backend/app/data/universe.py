@@ -1,5 +1,7 @@
 from pykrx import stock
 
+from app.data.providers.krx_config import should_use_pykrx
+
 # KRX API 장애 시 사용하는 KOSPI 대표 종목 (시가총액 상위)
 FALLBACK_KOSPI_TICKERS = [
     "005930",  # 삼성전자
@@ -49,6 +51,8 @@ FALLBACK_NAMES = {
 
 
 def get_tickers(market: str = "KOSPI") -> list[str]:
+    if not should_use_pykrx():
+        return FALLBACK_KOSPI_TICKERS.copy()
     try:
         tickers = stock.get_market_ticker_list(market=market)
         if tickers:
@@ -61,6 +65,8 @@ def get_tickers(market: str = "KOSPI") -> list[str]:
 
 
 def get_ticker_name(ticker: str) -> str:
+    if not should_use_pykrx():
+        return FALLBACK_NAMES.get(ticker, ticker)
     try:
         name = stock.get_market_ticker_name(ticker)
         if name:

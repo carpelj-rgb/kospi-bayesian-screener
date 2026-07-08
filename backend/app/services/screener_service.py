@@ -11,6 +11,7 @@ from app.bayesian.screener import (
     set_prior_odds,
 )
 from app.config import settings
+from app.data.providers.krx_config import should_use_pykrx
 from app.data.providers.pykrx_client import PykrxClient
 from app.data.universe import get_tickers
 from app.factors.models import TickerFactorInputs
@@ -163,6 +164,11 @@ class ScreenerService:
         limit: int | None = None,
     ) -> ScreenerResponse:
         warnings: list[str] = []
+        if not should_use_pykrx():
+            warnings.append(
+                "KRX/pykrx 데이터 미사용(KRX_ID·KRX_PW 미설정). "
+                "fallback 20종목 + yfinance 팩터만 반영됩니다."
+            )
         try:
             tickers = self._resolve_tickers(market, limit)
             if not tickers:

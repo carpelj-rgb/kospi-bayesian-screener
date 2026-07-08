@@ -6,7 +6,10 @@ from datetime import date, timedelta
 import pandas as pd
 from pykrx import stock
 
+from app.data.providers.krx_config import configure_pykrx_logging, should_use_pykrx
 from app.data.universe import get_ticker_name
+
+configure_pykrx_logging()
 
 
 def _to_yyyymmdd(d: date) -> str:
@@ -15,6 +18,8 @@ def _to_yyyymmdd(d: date) -> str:
 
 def _latest_business_day(reference: date | None = None) -> date:
     ref = reference or date.today()
+    if not should_use_pykrx():
+        return ref
     for offset in range(0, 14):
         candidate = ref - timedelta(days=offset)
         ymd = _to_yyyymmdd(candidate)
@@ -28,10 +33,25 @@ def _latest_business_day(reference: date | None = None) -> date:
 
 
 class PykrxClient:
+    def __init__(self) -> None:
+        self._enabled = should_use_pykrx()
+        if not self._enabled:
+            import logging
+
+            logging.getLogger(__name__).info(
+                "pykrx skipped (KRX_ID/KRX_PW unset). Using fallback universe + yfinance."
+            )
+
+    @property
+    def enabled(self) -> bool:
+        return self._enabled
+
     def latest_business_day(self, reference: date | None = None) -> date:
         return _latest_business_day(reference)
 
     def get_prices(self, tickers: list[str], as_of: date, market: str = "KOSPI") -> pd.Series:
+        if not self._enabled:
+            return pd.Series(dtype="float64")
         ymd = _to_yyyymmdd(as_of)
         try:
             df = stock.get_market_ohlcv_by_ticker(ymd, market=market)
@@ -53,6 +73,8 @@ class PykrxClient:
         return pd.Series(prices, dtype="float64")
 
     def get_pbr(self, tickers: list[str], as_of: date, market: str = "KOSPI") -> pd.Series:
+        if not self._enabled:
+            return pd.Series(dtype="float64")
         ymd = _to_yyyymmdd(as_of)
         try:
             df = stock.get_market_fundamental_by_ticker(ymd, market=market)
@@ -102,7 +124,8 @@ class PykrxClient:
     def get_inst_net_daily(
         self, tickers: list[str], as_of: date, days: int = 5
     ) -> dict[str, list[float]]:
-        """종목별 기관 일별 순매수 거래대금."""
+        if not self._enabled:
+            return {ticker: [] for ticker in tickers}
         start = as_of - timedelta(days=days * 3)
         ymd_start = _to_yyyymmdd(start)
         ymd_end = _to_yyyymmdd(as_of)
@@ -131,7 +154,8 @@ class PykrxClient:
     def get_combined_net_daily(
         self, tickers: list[str], as_of: date, days: int = 25
     ) -> dict[str, list[float]]:
-        """외국인+기관 합산 일별 순매수 거래대금."""
+        if not self._enabled:
+            return {ticker: [] for ticker in tickers}
         start = as_of - timedelta(days=days * 3)
         ymd_start = _to_yyyymmdd(start)
         ymd_end = _to_yyyymmdd(as_of)
@@ -167,7 +191,8 @@ class PykrxClient:
     def get_ohlcv_history(
         self, tickers: list[str], as_of: date, days: int = 130
     ) -> dict[str, pd.DataFrame]:
-        """종목별 OHLCV 시계열 (시가·종가·거래대금)."""
+        if not self._enabled:
+            return {ticker: pd.DataFrame() for ticker in tickers}
         start = as_of - timedelta(days=int(days * 1.6))
         ymd_start = _to_yyyymmdd(start)
         ymd_end = _to_yyyymmdd(as_of)
@@ -193,7 +218,8 @@ class PykrxClient:
     def get_roe_series(
         self, tickers: list[str], as_of: date, periods: int = 2
     ) -> dict[str, tuple[float | None, float | None]]:
-        """최근 2기 ROE (EPS/BPS×100) — (current, previous)."""
+        if not self._enabled:
+            return {ticker: (None, None) for ticker in tickers}
         start = as_of - timedelta(days=periods * 120)
         ymd_start = _to_yyyymmdd(start)
         ymd_end = _to_yyyymmdd(as_of)
@@ -234,7 +260,8 @@ class PykrxClient:
     def get_foreign_net_daily(
         self, tickers: list[str], as_of: date, days: int = 5
     ) -> dict[str, list[float]]:
-        """종목별 외국인 일별 순매수 거래대금 (최근 days 영업일)."""
+        if not self._enabled:
+            return {ticker: [] for ticker in tickers}
         start = as_of - timedelta(days=days * 3)
         ymd_start = _to_yyyymmdd(start)
         ymd_end = _to_yyyymmdd(as_of)
@@ -262,6 +289,8 @@ class PykrxClient:
         return result
 
     def get_net_flow(self, tickers: list[str], as_of: date, window: int) -> pd.DataFrame:
+        if not self._enabled:
+            return pd.DataFrame(columns=["ticker", "net_flow_sum", "net_flow_mean"])
         start = as_of - timedelta(days=window * 2)
         ymd_start = _to_yyyymmdd(start)
         ymd_end = _to_yyyymmdd(as_of)
