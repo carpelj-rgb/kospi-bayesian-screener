@@ -1,0 +1,23 @@
+# Render.com — backend (FastAPI) deployment
+# Docs: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: kospi-screener-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: DEBUG
+        value: "false"
+      - key: FRONTEND_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: CORS_ORIGIN_REGEX
+        value: "https://.*\\.vercel\\.app"
+      - key: KRX_ID
+        sync: false
+      - key: KRX_PW
+        sync: false
