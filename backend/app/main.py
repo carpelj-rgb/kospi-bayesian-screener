@@ -13,12 +13,18 @@ app = FastAPI(title=settings.app_name, debug=settings.debug)
 
 
 @app.get("/")
-def read_root():
+def read_root() -> dict[str, str]:
     return {
         "message": "KOSPI Bayesian Factor Screener API is running",
         "docs": "/docs",
         "health": "/api/v1/health",
     }
+
+
+@app.get("/health", include_in_schema=False)
+def read_health_alias() -> dict[str, str]:
+    """Lightweight health alias for load balancers (primary: /api/v1/health)."""
+    return {"status": "ok", "health": "/api/v1/health"}
 
 
 app.add_middleware(

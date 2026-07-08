@@ -8,6 +8,7 @@ services:
     dockerContext: ./backend
     plan: free
     healthCheckPath: /api/v1/health
+    healthCheckInitialDelaySeconds: 120
     envVars:
       - key: DEBUG
         value: "false"
