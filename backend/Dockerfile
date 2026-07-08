@@ -1,5 +1,8 @@
 FROM python:3.11-slim
 
+# Bump CACHE_BUST to force Render "clear build cache" rebuild from this layer
+ARG CACHE_BUST=3554c84-clear-cache-1
+
 WORKDIR /app
 
 ENV PYTHONPATH=/app \
