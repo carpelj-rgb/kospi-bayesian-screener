@@ -2,7 +2,7 @@
 # Docs: https://render.com/docs/blueprint-spec
 services:
   - type: web
-    name: kospi-screener-api
+    name: kospi-bayesian-screener
     runtime: docker
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
